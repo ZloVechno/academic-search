@@ -1,0 +1,33 @@
+
+R version 2.15.1 (2012-06-22) -- "Roasted Marshmallows"
+Copyright (C) 2012 The R Foundation for Statistical Computing
+ISBN 3-900051-07-0
+Platform: x86_64-pc-linux-gnu (64-bit)
+
+R -- это свободное ПО, и оно поставляется безо всяких гарантий.
+Вы вольны распространять его при соблюдении некоторых условий.
+Введите 'license()' для получения более подробной информации.
+
+R -- это проект, в котором сотрудничает множество разработчиков.
+Введите 'contributors()' для получения дополнительной информации и
+'citation()' для ознакомления с правилами упоминания R и его пакетов
+в публикациях.
+
+Введите 'demo()' для запуска демонстрационных программ, 'help()' -- для
+получения справки, 'help.start()' -- для доступа к справке через браузер.
+Введите 'q()', чтобы выйти из R.
+
+[Загружено ранее сохраненное рабочее пространство]
+
+> Z = read.csv("./approx.csv", header=FALSE, sep=";")
+> real_data <- Z[1,]
+> approx_data <- Z[2,]
+> xs <- 1:length(Z[1,])
+> aps <- 1:length(Z[2,])
+> 
+> jpeg("graph.jpg")
+> plot(xs, real_data, type="p", xlab="Number of article", ylab="Count of citations", main="Citations and approximation", col="red")
+> line(aps, approx_data, type="b", col="blue")
+Ошибка в line(aps, approx_data, type = "b", col = "blue") : 
+  неиспользованный аргумент(ы) (type = "b", col = "blue")
+Выполнение остановлено

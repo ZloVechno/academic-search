@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>667</width>
-    <height>558</height>
+    <width>982</width>
+    <height>693</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -16,12 +16,19 @@
   <widget class="QWidget" name="centralWidget">
    <layout class="QVBoxLayout" name="verticalLayout">
     <item>
-     <widget class="QTabWidget" name="tabs"/>
+     <widget class="QTabWidget" name="tabs">
+      <property name="tabsClosable">
+       <bool>true</bool>
+      </property>
+     </widget>
     </item>
     <item>
      <layout class="QHBoxLayout" name="horizontalLayout">
       <item>
        <widget class="QLineEdit" name="nameEdit"/>
+      </item>
+      <item>
+       <widget class="QComboBox" name="engineBox"/>
       </item>
       <item>
        <widget class="QPushButton" name="okBtn">
@@ -30,10 +37,14 @@
         </property>
        </widget>
       </item>
-      <item>
-       <widget class="QComboBox" name="searchTypeBox"/>
-      </item>
      </layout>
+    </item>
+    <item>
+     <widget class="QLabel" name="info">
+      <property name="text">
+       <string/>
+      </property>
+     </widget>
     </item>
    </layout>
   </widget>
@@ -42,12 +53,29 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>667</width>
+     <width>982</width>
      <height>25</height>
     </rect>
    </property>
+   <widget class="QMenu" name="menuMenu">
+    <property name="title">
+     <string>Menu</string>
+    </property>
+    <addaction name="actionHelp"/>
+    <addaction name="actionAbout"/>
+   </widget>
+   <addaction name="menuMenu"/>
   </widget>
-  <widget class="QStatusBar" name="infoBar"/>
+  <action name="actionHelp">
+   <property name="text">
+    <string>Help</string>
+   </property>
+  </action>
+  <action name="actionAbout">
+   <property name="text">
+    <string>About</string>
+   </property>
+  </action>
  </widget>
  <layoutdefault spacing="6" margin="11"/>
  <tabstops>
