@@ -1,61 +1,60 @@
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
 
+#include <QtGui>
+
 MainWindow::MainWindow(QWidget *parent) :
   QMainWindow(parent),
   ui(new Ui::MainWindow) {
 
-  ui->setupUi(this);
-  this->setWindowTitle("Academic Search");
+  Controller::setConsts();
 
-  this->controller = new Controller(this);
-  QList<QString> engines = this->controller->engines();
+  ui->setupUi(this);
+
+  QList<QString> engines = Controller::engines();
   this->ui->engineBox->insertItems(1, engines);
 
   connect(this->ui->okBtn, SIGNAL(clicked()), this, SLOT(searchRequest()));
-  connect(this, SIGNAL(search(QString,QString)), this->controller, SLOT(search(QString,QString)), Qt::QueuedConnection);
-  connect(this->controller, SIGNAL(complite(QString)), this, SLOT(compliteSearch(QString)));
-  connect(this->controller, SIGNAL(error(QString)), this, SLOT(errorSearch(QString)));
-  connect(this->controller,  SIGNAL(info(QString)), this, SLOT(info(QString)));
-  connect(this->ui->tabs, SIGNAL(tabCloseRequested(int)), this, SLOT(closeTab(int)));
-  connect(this->ui->nameEdit, SIGNAL(returnPressed()), this->ui->okBtn, SIGNAL(clicked()));
+  connect(this->ui->nameEdit, SIGNAL(returnPressed()), this, SLOT(searchRequest()));
 
-  connect(this->ui->actionHelp, SIGNAL(triggered()), this->controller, SLOT(getInfo()));
-  connect(this->ui->actionAbout, SIGNAL(triggered()), this->controller, SLOT(getAbout()));
-  this->controller->getInfo();
+  connect(this->ui->tabs, SIGNAL(tabCloseRequested(int)), this, SLOT(closeTab(int)));
+
+  connect(this->ui->actionHelp, SIGNAL(triggered()), this, SLOT(getInfo()));
+  connect(this->ui->actionAbout, SIGNAL(triggered()), this, SLOT(getAbout()));
+
+  connect(this->ui->fileOpen, SIGNAL(clicked()), this, SLOT(loadFile()));
+
+  this->getInfo();
 }
 
 MainWindow::~MainWindow() {
   delete ui;
-  delete this->controller;
 }
 
 void MainWindow::searchRequest() {
   QString engine = this->ui->engineBox->currentText();
   QString name = this->ui->nameEdit->text();
-  this->ui->nameEdit->setEnabled(false);
-  this->ui->okBtn->setEnabled(false);
-
-  emit this->search(name, engine);
+  PageView* page = getNewPage();
+  page->search(name, engine);
 }
 
-void MainWindow::errorSearch(const QString &reason) {
-  this->addNewTab(reason);
+void MainWindow::getInfo() {
+  PageView* page = getNewPage();
+  page->setConstPage("info");
 }
 
-void MainWindow::compliteSearch(const QString &result) {
-  this->addNewTab(result);
+void MainWindow::getAbout() {
+  PageView* page = getNewPage();
+  page->setConstPage("about");
 }
 
-void MainWindow::addNewTab(const QString &text) {
-  QTextBrowser* textBrowser = new QTextBrowser(this->ui->tabs);
-  this->pages.push_back(textBrowser);
-  textBrowser->setText(text);
-  this->ui->tabs->insertTab(this->ui->tabs->count(), textBrowser , this->ui->nameEdit->text());
-  this->ui->tabs->setCurrentIndex(this->ui->tabs->count() - 1);
-
-  this->ui->nameEdit->setEnabled(true);
-  this->ui->okBtn->setEnabled(true);
+void MainWindow::titleChange(const QString &title, PageView *caller) {
+  int i = this->pages.indexOf(caller);
+  if (i >= 0 && i < this->pages.size()) {
+    this->ui->tabs->setTabText(i, title);
+  } else {
+    qDebug() << "Wrong caller of title change with title " << title << "!";
+  }
 }
 
 void MainWindow::closeTab(int index) {
@@ -63,6 +62,33 @@ void MainWindow::closeTab(int index) {
   this->pages.remove(index);
 }
 
-void MainWindow::info(const QString &info) {
-  this->ui->info->setText(info);
+PageView* MainWindow::getNewPage() {
+  PageView* page = new PageView(this->ui->tabs);
+  this->ui->tabs->insertTab(this->ui->tabs->count(), page, "Page");
+  this->pages.push_back(page);
+  this->ui->tabs->setCurrentIndex(this->ui->tabs->count() - 1);
+  connect(page, SIGNAL(titleChange(QString,PageView*)), this, SLOT(titleChange(QString,PageView*)));
+  return page;
+}
+
+void MainWindow::loadFile() {
+  QString path = QFileDialog::getOpenFileName(this, "Select input file");
+  QFile file(path);
+  if (!file.open(QIODevice::ReadOnly)) {
+    QErrorMessage msg;
+    msg.showMessage("Can not read input file!", "Bad file.");
+    return;
+  }
+  QStringList inputs = QString(file.readAll()).split("\n");
+  QStringList::Iterator input = inputs.begin();
+  while(input != inputs.end()) {
+    *input = input->trimmed();
+    if (input->length() < 3) {
+      input = inputs.erase(input);
+    } else {
+      ++input;
+    }
+  }
+  qDebug() << inputs;
+  this->ui->nameEdit->setText(inputs.join(", "));
 }

@@ -1,156 +1,178 @@
 #include "controller.h"
 
+QMap<QString, QStringList> Controller::handlers;
+QMap<QString, QString> Controller::engineRepr;
+QMap<QString, QString> Controller::commands;
+QMap<QString, QString> Controller::templates;
+QString Controller::workingPath;
+
+QRegExp Controller::replaceReg;
+QRegExp Controller::applyReg;
+
 Controller::Controller(QObject *parent) :
-  QThread(parent) {
-  this->workingPath = QDir::current().absoluteFilePath("../../data/");
-  this->handlers.insert("Google Scholar", "google");
-  this->handlers.insert("Microsoft Bing", "ms");
-
-  this->commands.insert("google", "google.r");
-  this->commands.insert("ms", "ms.r");
-
-  this->loadTemplate(this->workingPath + "person.html", "person");
-  this->loadTemplate(this->workingPath + "error.html", "error");
-  this->loadTemplate(this->workingPath + "fatal.html", "fatal");
-  this->loadTemplate(this->workingPath + "info.html", "info");
-  this->loadTemplate(this->workingPath + "about.html", "about");
+  QObject (parent) {
+  this->locked = false;
 }
 
-QList<QString> Controller::engines() const {
-  return this->handlers.keys();
+Controller::~Controller() {
+  for (QMap<SearchTask, QThread*>::Iterator thread = this->workers.begin();
+       thread != this->workers.end(); thread++) {
+    (*thread)->quit();
+    (*thread)->wait();
+  }
 }
 
-void Controller::search(const QString &name, const QString &type) {
-  QString engine = this->handlers[type];
-  TemplateKeys keys;
-  keys.insert("engine", engine);
-  keys.insert("service", type);
-  QString postName = this->postName(name, engine);
-  emit info("Search by name " + postName);
-  keys.insert("name", postName);
+bool Controller::isComplite() const {
+  return !this->locked;
+}
 
-  QFile inputs(this->workingPath + "input.txt");
-  inputs.open(QIODevice::WriteOnly);
-  if (engine == "google") {
-    inputs.write(QString("\"" + postName + "\"").toUtf8());
+bool Controller::saveResults(const QString &filePath) {
+  QFile f(filePath);
+  if (!f.open(QIODevice::WriteOnly)) {
+    return false;
   } else {
-    inputs.write(QString(postName).toUtf8());
+    QStringList personsStr;
+    for (QVariantMap::ConstIterator personIt = this->incompliteKeys.constBegin();
+         personIt != this->incompliteKeys.constEnd(); ++personIt) {
+      QStringList personStr;
+      QVariantMap person = personIt.value().toMap();
+      for (QVariantMap::ConstIterator engineIt = person.constBegin();
+           engineIt != person.constEnd(); ++ engineIt) {
+        QVariantMap engine = engineIt.value().toMap();
+        QStringList engineStr;
+        if (engine.contains("articles")) {
+          engineStr << ("      \"articles\" : " + engine.value("articles").toString());
+        }
+        if (engine.contains("h_index")) {
+          engineStr << ("      \"h_index\" : " + engine.value("h_index").toString());
+        }
+        if (engine.contains("years")) {
+          engineStr << ("      \"years\" : " + engine.value("years").toString());
+        }
+        if (engine.contains("citations")) {
+          QStringList citationsStr;
+          QVariantList citations = engine.value("citations").toList();
+          for (QVariantList::ConstIterator cit = citations.constBegin();
+               cit != citations.constEnd(); ++cit) {
+            citationsStr << cit->toString();
+          }
+          engineStr << ("      \"citations\" : [" + citationsStr.join(", ") + "]");
+        }
+
+        if (engine.contains("approx")) {
+          QStringList citationsStr;
+          QVariantList citations = engine.value("approx").toList();
+          for (QVariantList::ConstIterator cit = citations.constBegin();
+               cit != citations.constEnd(); ++cit) {
+            citationsStr << cit->toString();
+          }
+          engineStr << ("      \"approx\" : [" + citationsStr.join(", ") + "]");
+        }
+
+        personStr << ("    \"" + engineIt.key() + "\" : {\n" + engineStr.join(",\n") + "\n    }");
+      }
+      personsStr << ("  \"" + personIt.key() + "\" : {\n" + personStr.join(",\n") + "\n  }");
+    }
+    f.write("{\n");
+    f.write(personsStr.join(",\n").toUtf8());
+    f.write("\n}");
+    return true;
   }
-  inputs.close();
+}
 
-  QProcess worker;
-  worker.setWorkingDirectory(this->workingPath);
-  worker.start("R", QStringList() << "CMD" << "BATCH" << this->commands[engine]);
-  worker.waitForFinished(1000 * 60 * 3);
-  inputs.remove();
+// Static section
+void Controller::setConsts() {
+  Controller::replaceReg = QRegExp("\\[(\\w+)\\](##|%%|#|%)[{](.*)[}][?][{](.*)[}]", Qt::CaseSensitive);
+  Controller::replaceReg.setMinimal(true);
+  Controller::workingPath = QDir::current().absoluteFilePath("../../data/");
 
-  if (worker.exitStatus() != QProcess::NormalExit) {
-    keys.insert("reason", "Timeout.");
-    emit this->error(this->renderTemplate("error", keys));
-    return;
-  }
+  Controller::handlers.insert("Google Scholar", QStringList() << "google");
+  Controller::handlers.insert("Microsoft Bing", QStringList() << "ms");
+  Controller::handlers.insert("Google Scholar & Microsoft Bing", QStringList() << "ms" << "google");
+  Controller::handlers.insert("Test Search", QStringList() << "test1");
+  Controller::handlers.insert("Double Test Search", QStringList() << "test1" << "test2");
 
-  QFile outputs(this->workingPath + "output.txt");
-  outputs.open(QIODevice::ReadOnly);
-  QStringList out = QString(outputs.readAll()).split("\n");
-  if (!outputs.isOpen() || !outputs.isReadable() || out.length() < 5) {
-    QString reason;
-    QFile rout(this->workingPath + this->commands[engine] + ".Rout");
-    if (!rout.open(QIODevice::ReadOnly)) {
-      reason = QString::fromUtf8(worker.readAll().data());
+  Controller::commands.insert("google", Controller::workingPath + "scripts/google.r");
+  Controller::commands.insert("ms", Controller::workingPath + "scripts/ms.r");
+  Controller::commands.insert("test1", Controller::workingPath + "scripts/test.r");
+  Controller::commands.insert("test2", Controller::workingPath + "scripts/test.r");
+
+  Controller::engineRepr.insert("google", "Google Scholar");
+  Controller::engineRepr.insert("ms", "Microsoft Academic Search");
+  Controller::engineRepr.insert("test1", "First Fake Search");
+  Controller::engineRepr.insert("test2", "Second Fake Search");
+
+  qRegisterMetaType<SearchTask>("SearchTask");
+
+  Controller::loadTemplates();
+}
+
+QList<QString> Controller::engines() {
+  return Controller::handlers.keys();
+}
+
+QString Controller::renderTemplate(const QString &templateName, const QVariantMap &keys) {
+  QString rendered = Controller::templates.value(templateName);
+  while (Controller::replaceReg.indexIn(rendered, 0) != -1) {
+    const QString expr = Controller::replaceReg.cap(0);
+    const QString key = Controller::replaceReg.cap(1);
+    const QString type = Controller::replaceReg.cap(2);
+    const QString templ = Controller::replaceReg.cap(3);
+    const QString alternative = Controller::replaceReg.cap(4);
+
+    if (!keys.contains(key)) {
+      rendered.replace(expr, alternative);
+      continue;
+    }
+
+    QString after = "";
+    QVariant value = keys.value(key);
+
+    if (type.length() == 2) {
+      if (value.type() != QVariant::List) {
+        qDebug() << "Type mismatch " << value.type() << ", List is requered.";
+      } else {
+        const QVariantList list = value.toList();
+        for (QVariantList::ConstIterator item = list.constBegin();
+             item != list.constEnd(); ++item) {
+          if (type == "%%") {
+            if (item->type() != QVariant::String && item->type() != QVariant::Int && item->type() != QVariant::Double) {
+              qDebug() << "Type mismatch " << item->type() << "; string, int or double is requered.";
+            } else {
+              after += QString(templ).replace("$", item->toString());
+            }
+          } else {
+            if (item->type() != QVariant::Map) {
+              qDebug() << "Type mismatch " << item->type() << "; string, int or double is requered.";
+            } else {
+              after += Controller::renderTemplate(templ, item->toMap());
+            }
+          }
+        }
+      }
+    } else if (type == "#") {
+      if (value.type() == QVariant::Map) {
+        after = Controller::renderTemplate(templ, value.toMap());
+      } else {
+        qDebug() << "Type mismatch " << value.type() << "; dict is requered.";
+      }
     } else {
-      reason = QString(rout.readAll());
-    }
-    keys.insert("reason", reason);
-    emit this->error(this->renderTemplate("fatal", keys));
-    outputs.close();
-    outputs.remove();
-    QFile(this->workingPath + this->commands[engine] + ".Rout").remove();
-    return;
-  }
-  QFile(this->workingPath + this->commands[engine] + ".Rout").remove();
-
-  outputs.close();
-  outputs.remove();
-
-  try {
-    int articlesCount = out.at(0).toInt();
-    if (articlesCount == 0) {
-      emit this->error(this->renderTemplate("error", keys));
-      return;
-    }
-
-    int processArticles = out.at(1).toInt();
-    bool isApprox = out.at(2).toInt() == 1;
-    int h_index = out.at(3).toInt();
-    int years = out.at(4).toInt();
-    int i;
-    QList<int> citations;
-    for (i = 0; i < processArticles && 5 + i < out.length(); i++) {
-      citations.push_back(out.at(5 + i).toInt());
-    }
-    QList<double> approxs;
-    if (isApprox) {
-      for (i = 0; i < processArticles && 5 + processArticles + i < out.length(); i++) {
-        approxs.push_back(out.at(5 + processArticles + i).toDouble());
+      if (value.type() == QVariant::String ||
+          value.type() == QVariant::Int ||
+          value.type() == QVariant::Double) {
+        after = QString(templ).replace("$", value.toString());
+      } else {
+        qDebug() << "Type mismatch " << value.type() << "; string, int or double is requered.";
       }
     }
-    QString graph_path = this->getGraph(citations, approxs);
 
-    keys.insert("articles", QString::number(articlesCount));
-    keys.insert("hindex", QString::number(h_index));
-    keys.insert("years", QString::number(years));
-    keys.insert("process", QString::number(processArticles));
-    keys.insert("graph", graph_path);
-
-    if (citations.at(0) == 0) {
-      keys.insert("reason", "Can not found.");
-      emit this->error(this->renderTemplate("error", keys));
-    } else {
-      emit this->complite(this->renderTemplate("person", keys));
-    }
-  } catch (...) {
-    keys.insert("reason", "Bad output file.");
-    emit error(this->renderTemplate("fatal", keys));
-  }
-}
-
-void Controller::loadTemplate(const QString &templatePath, const QString &name) {
-  try {
-    QFile temp(templatePath);
-    temp.open(QIODevice::ReadOnly);
-    this->templates.insert(name, QString(temp.readAll()));
-    temp.close();
-  } catch (...) {
-    emit this->error(QString("Controller can not load template file: %1!").arg(templatePath));
-  }
-}
-
-QString Controller::postName(const QString &name, const QString &type) const {
-  QStringList nameParts = name.simplified().split(" ");
-  if (type == "google") {
-    int i = 0;
-    for (i = 0; i < nameParts.length() - 1; i++) {
-      nameParts[i] = nameParts[i].length() > 0 ? QString(nameParts[i][0]) : "";
-    }
-    QString lastName = nameParts.takeLast();
-    return nameParts.join("") + " " + lastName;
-  } else if (type == "ms" && nameParts.length() == 3) {
-    nameParts[1] = QString(nameParts[1][0]);
-  }
-  return nameParts.join(" ");
-}
-
-QString Controller::renderTemplate(const QString &templateName, const QMap<QString, QString> &keys) {
-  QString rendered = this->templates[templateName];
-  for (TemplateKeys::ConstIterator it = keys.constBegin(); it != keys.constEnd(); ++it) {
-    rendered = rendered.replace("[" + it.key() + "]", it.value());
+    rendered.replace(expr, after);
   }
   return rendered;
 }
 
-QString Controller::getGraph(const QList<int> &real, const QList<double> &approx) const {
-  QFile csv(this->workingPath + "approx.csv");
+QString Controller::getGraph(const QList<int> &real, const QList<double> &approx) {
+  QFile csv(Controller::workingPath + "tmp/approx.csv");
   csv.open(QIODevice::WriteOnly);
   QStringList realStr, approxStr;
   for (QList<int>::ConstIterator it = real.constBegin(); it != real.constEnd(); ++it) {
@@ -166,21 +188,260 @@ QString Controller::getGraph(const QList<int> &real, const QList<double> &approx
   csv.close();
 
   QProcess worker;
-  worker.setWorkingDirectory(this->workingPath);
-  worker.start("R", QStringList() << "CMD" << "BATCH" << "graph.r");
+  worker.setWorkingDirectory(Controller::workingPath + "tmp/");
+  worker.start("sh", QStringList() << Controller::workingPath + "tmp/start.sh"
+               << "1" << "1"
+               << Controller::workingPath + "tmp/graph.r"
+               << Controller::workingPath + "tmp/graph.log");
+
   worker.waitForFinished(1000);
   csv.remove();
-  if (worker.exitStatus() != QProcess::NormalExit) {
-    return "no-graph.jpg";
+  if (worker.exitStatus() == QProcess::NormalExit) {
+    return Controller::workingPath + "tmp/graph.jpg";
   } else {
-    return "graph.jpg";
+    return Controller::workingPath + "imgs/non-graph.jpg";
   }
 }
 
-void Controller::getInfo() {
-  emit complite(this->renderTemplate("info", TemplateKeys()));
+QString Controller::getConstPage(const QString &name) {
+  return Controller::renderTemplate(name, QVariantMap());
 }
 
-void Controller::getAbout() {
-  emit complite(this->renderTemplate("about", TemplateKeys()));
+// Slots
+void Controller::search(const QString &names_, const QString &type) {
+  if (this->locked) {
+    qDebug() << "Controller already has task!";
+    return;
+  } else {
+    this->locked = true;
+  }
+
+
+  this->cleanUp();
+  const QStringList engines = Controller::handlers.value(type);
+  this->searchHandler = type;
+  QStringList names = names_.split(",");
+
+  this->timeout = names.size() * 1000 * 60;
+  emit this->setTimeOut(this->timeout);
+
+  for (QStringList::Iterator name = names.begin(); name != names.end(); name++) {
+    (*name) = name->trimmed();
+  }
+  for (QStringList::ConstIterator engine = engines.constBegin();
+       engine != engines.constEnd(); ++engine) {
+    this->searchBy(names, *engine);
+  }
+  emit this->setInfo("Starting search.");
+}
+
+void Controller::searchBy(const QStringList &names, const QString &engine) {
+  for (QStringList::ConstIterator name = names.constBegin();
+       name != names.constEnd(); name++) {
+    const SearchTask task = SearchTask(*name, engine);
+    this->sheduleTask(task);
+  }
+}
+
+void Controller::sheduleTask(const SearchTask &task) {
+  ScriptRunner* scriptRunner = new ScriptRunner(task, Controller::workingPath + "tmp/",
+                                                Controller::commands.value(task.second),
+                                                this->timeout);
+  QThread* thread = new QThread();
+  scriptRunner->moveToThread(thread);
+
+  connect(thread, SIGNAL(started()), scriptRunner, SLOT(search()), Qt::QueuedConnection);
+
+  connect(thread, SIGNAL(finished()), thread, SLOT(deleteLater()), Qt::QueuedConnection);
+  connect(thread, SIGNAL(finished()), scriptRunner, SLOT(deleteLater()), Qt::QueuedConnection);
+
+  connect(scriptRunner, SIGNAL(complite(SearchTask,QVariantMap)),
+          this, SLOT(addResult(SearchTask,QVariantMap)), Qt::QueuedConnection);
+  connect(scriptRunner, SIGNAL(complite(SearchTask,QVariantMap)),
+          thread, SLOT(quit()), Qt::QueuedConnection);
+
+  this->workers.insert(task, thread);
+  this->tasks += 1;
+  this->tasksMax += 1;
+
+  thread->start(QThread::NormalPriority);
+}
+
+void Controller::addResult(const SearchTask &task, const QVariantMap &keys) {
+  const QString name = task.first;
+  const QString engine = task.second;
+  if (!this->incompliteKeys.contains(name)) {
+    this->incompliteKeys[name] = QVariant(QVariantMap());
+  }
+
+  QVariantMap newResults = this->incompliteKeys[name].toMap();
+  newResults[engine] = keys;
+  this->incompliteKeys[name] = QVariant(newResults);
+  this->tasks--;
+  emit this->setInfo("Complite " + QString::number(this->tasksMax - this->tasks) + "/" + QString::number(this->tasksMax) + " tasks.");
+  if (this->tasks <= 0) {
+    this->processResults();
+    this->cleanUp();
+    this->locked = false;
+  }
+}
+
+void Controller::cleanUp() {
+  this->tasks = 0;
+  this->tasksMax = 0;
+  this->workers.clear();
+  //this->incompliteKeys.clear();
+  this->searchHandler.clear();
+}
+
+QVariantList Controller::mapToList(const QString &key, const QVariantMap &map) {
+  QVariantList result;
+  for (QVariantMap::ConstIterator it = map.constBegin();
+       it != map.constEnd(); ++it) {
+    QVariantMap item = it->toMap();
+    item.insert(key, it.key());
+    result.push_back(QVariant(item));
+  }
+  return result;
+}
+
+void Controller::processResults() {
+  const bool multiEngine = !(Controller::handlers.value(this->searchHandler).length() == 1);
+  const bool multiPerson = !(this->incompliteKeys.size() == 1);
+
+  QString title = "Results";
+
+  QVariantMap result;
+  result.insert("service", QVariant(this->searchHandler));
+
+  if (multiPerson) {
+    QVariantList persons;
+    for (QVariantMap::ConstIterator personIt = this->incompliteKeys.constBegin();
+         personIt != this->incompliteKeys.constEnd(); ++personIt) {
+      QVariantMap person = personIt.value().toMap();
+      QString personName = personIt.key();
+      if (multiEngine) {
+        QVariantList engineResults;
+        for (QVariantMap::ConstIterator engineRes = person.constBegin();
+             engineRes != person.constEnd(); ++engineRes) {
+          QString engineName = engineRes.key();
+          QVariantMap singleResult = engineRes.value().toMap();
+          singleResult.insert("engine", QVariant(Controller::engineRepr[engineName]));
+          engineResults.push_back(singleResult);
+        }
+        QVariantMap newPerson;
+        newPerson.insert("name", QVariant(personName));
+        newPerson.insert("results", QVariant(engineResults));
+        persons.push_back(QVariant(newPerson));
+      } else {
+        QString engineName = person.keys().first();
+        QVariantMap singleResult = person[engineName].toMap();
+        singleResult.insert("engine", QVariant(Controller::engineRepr[engineName]));
+        singleResult.insert("name", QVariant(personName));
+        persons.push_back(QVariant(singleResult));
+      }
+    }
+    result.insert("persons", persons);
+  } else {
+    QString personName = this->incompliteKeys.keys().first();
+    title = personName;
+
+    QVariantMap person = this->incompliteKeys[personName].toMap();
+    if (multiEngine) {
+      QVariantList engineResults;
+      for (QVariantMap::ConstIterator engineRes = person.constBegin();
+           engineRes != person.constEnd(); ++engineRes) {
+        QString engineName = engineRes.key();
+        QVariantMap singleResult = engineRes.value().toMap();
+        singleResult.insert("engine", QVariant(Controller::engineRepr[engineName]));
+        engineResults.push_back(singleResult);
+      }
+      QVariantMap newPerson;
+      newPerson.insert("name", QVariant(personName));
+      newPerson.insert("results", QVariant(engineResults));
+      person = newPerson;
+    } else {
+      QString engineName = person.keys().first();
+      QVariantMap engineResult = person[engineName].toMap();
+      engineResult.insert("name", QVariant(personName));
+      engineResult.insert("engine", QVariant(Controller::engineRepr[engineName]));
+
+      if (engineResult.contains("citations")) {
+        QList<int> cits;
+        QList<double> approx;
+        QVariantList citVs = engineResult.value("citations").toList();
+        for (QVariantList::ConstIterator citIt = citVs.constBegin();
+             citIt != citVs.constEnd();
+             ++citIt) {
+          QVariant cit = *citIt;
+          cits.append(cit.toInt());
+        }
+        if (engineResult.contains("approx")) {
+          QVariantList approxs = engineResult.value("approx").toList();
+          for (QVariantList::ConstIterator approxIt = approxs.constBegin();
+               approxIt != approxs.constEnd(); ++approxIt) {
+            approx.append(approxIt->toDouble());
+          }
+        }
+        engineResult.insert("graph", this->getGraph(cits, approx));
+      }
+
+      person = engineResult;
+    }
+    result.insert("person", person);
+  }
+
+  QString templ;
+  if (multiEngine) {
+    if (multiPerson) {
+      templ = "bpersons";
+    } else {
+      templ = "bperson";
+    }
+  } else {
+    if (multiPerson) {
+      templ = "persons";
+    } else {
+      templ = "person";
+    }
+  }
+  qDebug() << result;
+  emit this->complite(Controller::renderTemplate(templ, result), title);
+}
+
+void Controller::constPage(const QString &templateName) {
+  QString newName = QString(templateName[0]).toUpper() + templateName.right(templateName.size() - 1);
+  emit this->complite(Controller::getConstPage(templateName), newName);
+  emit this->setInfo(newName);
+}
+
+// Static private
+void Controller::loadTemplate(const QString &templatePath, const QString &name) {
+  qDebug() << "Load template" << name << "from" << templatePath;
+  try {
+    QFile temp(templatePath);
+    temp.open(QIODevice::ReadOnly);
+    Controller::templates.insert(name, QString(temp.readAll()));
+    temp.close();
+  } catch (...) {
+    qDebug() << "Fail load template" << templatePath << "!";
+  }
+}
+
+void Controller::loadTemplates() {
+  QFile config(Controller::workingPath + "templates.conf");
+  config.open(QIODevice::ReadOnly);
+  QStringList templatesDefenitions = QString(config.readAll()).split("\n");
+
+  for (QStringList::ConstIterator def = templatesDefenitions.constBegin();
+       def != templatesDefenitions.constEnd(); ++def) {
+    const QStringList tokens = def->split("=");
+    if (tokens.length() < 2) {
+      continue;
+    } else if (tokens.length() > 2) {
+      qDebug() << "Failing read template defenition" << *def;
+      continue;
+    }
+    Controller::loadTemplate(Controller::workingPath + tokens.at(1).trimmed(), tokens.at(0).trimmed());
+  }
 }

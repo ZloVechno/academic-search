@@ -14,11 +14,16 @@ TEMPLATE = app
 
 SOURCES += main.cpp\
         mainwindow.cpp \
-    controller.cpp
+    controller.cpp \
+    pageview.cpp \
+    scriptrunner.cpp
 
 HEADERS  += mainwindow.h \
-    controller.h
+    controller.h \
+    pageview.h \
+    scriptrunner.h
 
-FORMS    += mainwindow.ui
+FORMS    += mainwindow.ui \
+    pageview.ui
 
 OTHER_FILES +=
