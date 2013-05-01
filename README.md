@@ -6,7 +6,7 @@ Welcome to the **Academic Search Project**. This program is to help you find the
 
 This is Linux program, but it is based on platform undependable libraries, so can be compiled under each system that supports analogs of following packages.
  
-The program require analogs of the packages in you system, that are listed below.
+The program requires analogs of the packages in you system, that are listed below.
 
 * `Qt4-Core`
 * `Qt4-WebKit`
@@ -16,7 +16,7 @@ The program require analogs of the packages in you system, that are listed below
 * `XML R-package`
 
 To install Qt libraries and libXML you can use packages from your repository.
-To install XML you can type `install.packages("XML")` in R console. Be sure that R can connect to the CRAN-repository.
+To install XML you can type `install.packages("XML")` in the R console. Be sure that R can connect to the CRAN-repository.
 
 ## Install
 
