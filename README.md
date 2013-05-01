@@ -58,7 +58,7 @@ There 4 modes of search:
 * Many persons and single engine;
 * Many persons and multi-engine.
 
-In the *single-person and single engine* mode graph of articles and approximation
+In the *single person and single engine* mode graph of articles and approximation
 (if needed and possible) will be generated.
 Mode of search depends on request and is detected automatically.
 
