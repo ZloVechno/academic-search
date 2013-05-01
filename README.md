@@ -20,8 +20,8 @@ To install XML you can type `install.packages("XML")` in the R console. Be sure 
 
 ## Install
 
-To install program you should run `build.sh` script in the root of package.
-The program will be compiled into `bin/gui/gui` or something like bellow:
+To install program you should run `build.sh` script in the root of package or something like below:
+The program will be compiled into `bin/gui/gui`.
 
     mkdir bin &&
     mkdir bin/gui &&
@@ -34,7 +34,13 @@ The program will be compiled into `bin/gui/gui` or something like bellow:
 
 ### Engines
 
-We support two basic engines: *Google Scholar* and *Microsoft Academic Search*. Search base of the first engine is larger than for the last one. But if you want to search a lot of persons you should use engine by *Microsoft* because *Google* will ban you soon in this case for a long time (several days) and will not response. Also there are combined engine *Google Schoolar + Miscrosoft Academic Search* and two fake engines: single *Test Search* and combined *Double Test Search*. The two last engines simple wait random time and response with random results.
+We support two basic engines: *Google Scholar* and *Microsoft Academic Search*.
+Search base of the first engine is larger than of the last one.
+But if you want to search a lot of persons we recommend to use engine by *Microsoft* because *Google* will
+**ban** you soon in this case for a long time (several days) and will not response.
+Also there are combined engine *Google Schoolar + Miscrosoft Academic Search* and
+two fake engines: single *Test Search* and combined *Double Test Search*.
+The two last engines simply wait random time and response with random results.
 Summary, engines:
 
 * Google Scholar;
@@ -52,7 +58,8 @@ There 4 modes of search:
 * Many persons and single engine;
 * Many persons and multi-engine.
 
-In the *single-person and single engine* mode graph of articles and approximation (if needed and possible) will be generated.
+In the *single-person and single engine* mode graph of articles and approximation
+(if needed and possible) will be generated.
 Mode of search depends on request and is detected automatically.
 
 ### Search information
@@ -73,4 +80,8 @@ You can save results of searching in JSON format by clicking button "Save as JSO
 
 ### Searching
 
-For each person and for each search engine the program will generate a one thread. There is a minute per each task of search timeout. Sometimes `Google` engine can **ban** you. `Microsoft` engine can generate bad results of searching or do not response for a long time. In bad result case you will see `NA` results in result tables.
+For each person and for each search engine the program will generate a one thread.
+There is a minute per each task of search timeout.
+Sometimes `Google` engine can **ban** you.
+`Microsoft` engine can generate bad results of searching or do not response for a long time.
+In bad result case you will see `NA` results in result tables.
