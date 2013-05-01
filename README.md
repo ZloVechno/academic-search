@@ -21,7 +21,6 @@ To install XML you can type `install.packages("XML")` in the R console. Be sure 
 ## Install
 
 To install program you should run `build.sh` script in the root of package or something like below:
-The program will be compiled into `bin/gui/gui`.
 
     mkdir bin &&
     mkdir bin/gui &&
@@ -29,6 +28,7 @@ The program will be compiled into `bin/gui/gui`.
     qmake ../src/gui &&
     make && make clean
 
+The program will be compiled into `bin/gui/gui`.
 
 ## Using
 
