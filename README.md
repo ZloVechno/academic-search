@@ -46,8 +46,8 @@ Summary, engines:
 * Google Scholar;
 * Microsoft Academic Search;
 * Google Scholar + Microsoft Academic Search;
-* Single Test engine;
-* Fake Test combined-engine.
+* Fake Single Test engine;
+* Fake Test multi-engine.
 
 ### Search modes
 
