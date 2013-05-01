@@ -72,11 +72,11 @@ The program is to search the next information about persons:
 
 ### Search load
 
-You can load file with search requests. The file should contain new-line separated names of scientists you want to search information about. To load search request simple click on button "...".
+You can load file with search requests. The file should contain new-line separated names of scientists you want to search information about. To load search request simple click on the button **...**.
 
 ### Search save
 
-You can save results of searching in JSON format by clicking button "Save as JSON...".
+You can save results of searching in JSON format by clicking on the button **Save as JSON...**.
 
 ### Searching
 
