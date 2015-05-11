@@ -4,7 +4,7 @@ Welcome to the **Academic Search Project**. This program is to help you find the
 
 ## Requirements
 
-This is Linux program, but it is based on platform undependable libraries, so can be compiled under each system that supports analogs of following packages.
+This is a Linux program but it is based on platform undependable libraries, so can be compiled under each system that supports analogs of following packages.
  
 The program requires analogs of the packages in you system, that are listed below.
 
@@ -20,7 +20,7 @@ To install XML you can type `install.packages("XML")` in the R console. Be sure 
 
 ## Install
 
-To install program you should run `build.sh` script in the root of package or something like below:
+To install program you should run `build.sh` script in the root of package or type in your console something like:
 
     mkdir bin &&
     mkdir bin/gui &&
@@ -30,14 +30,14 @@ To install program you should run `build.sh` script in the root of package or so
 
 The program will be compiled into `bin/gui/gui`.
 
-## Using
+## Usage
 
 ### Engines
 
 We support two basic engines: *Google Scholar* and *Microsoft Academic Search*.
-Search base of the first engine is larger than of the last one.
-But if you want to search a lot of persons we recommend to use engine by *Microsoft* because *Google* will
-**ban** you soon in this case for a long time (several days) and will not response.
+Search base of the first engine is larger than of last ones.
+But if you want to perform big search we recommend to use engine by *Microsoft* since *Google* will
+**ban** you soon for a long time (several days) and will not response.
 Also there are combined engine *Google Schoolar + Miscrosoft Academic Search* and
 two fake engines: single *Test Search* and combined *Double Test Search*.
 The two last engines simply wait random time and response with random results.
@@ -60,7 +60,7 @@ There 4 modes of search:
 
 In the *single person and single engine* mode graph of articles and approximation
 (if needed and possible) will be generated.
-Mode of search depends on request and is detected automatically.
+Mode of search depends on the request and is detected automatically.
 
 ### Search information
 
@@ -70,7 +70,7 @@ The program is to search the next information about persons:
 * Count of articles;
 * Years in science (approximation).
 
-### Search load
+### Loading requests
 
 You can load file with search requests. The file should contain new-line separated names of scientists you want to search information about. To load search request simple click on the button **...**.
 
@@ -83,5 +83,5 @@ You can save results of searching in JSON format by clicking on the button **Sav
 For each person and for each search engine the program will generate a one thread.
 There is a minute per each task of search timeout.
 Sometimes `Google` engine can **ban** you.
-`Microsoft` engine can generate bad results of searching or do not response for a long time.
-In bad result case you will see `NA` results in result tables.
+`Microsoft` engine can generate bad results or not respond for a long time.
+In case of bad result you will see `NA` results in result tables.
